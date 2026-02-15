@@ -1234,76 +1234,80 @@
             }
             userEmail = email;
 
+            const parseJsonSafe = async (response) => {
+                const text = await response.text();
+                try {
+                    return text ? JSON.parse(text) : {};
+                } catch (err) {
+                    console.error('[client] Invalid JSON from', response.url, 'status', response.status, 'body:', text);
+                    throw new Error('Invalid JSON response from server');
+                }
+            };
+
+            console.debug('[client] POST /api/send-otp', { email });
             try {
                 const resp = await fetch('/api/send-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || 'Failed to send OTP');
 
-                document.getElementById('otpEmail').textContent = email;
-                document.getElementById('authStep1').classList.add('hidden');
-                document.getElementById('authStep2').classList.remove('hidden');
-                document.getElementById('authTitle').textContent = 'Verify Email';
+                let data;
+                try { data = await parseJsonSafe(resp); } catch (err) { console.error(err); showToast('Error sending OTP: invalid server response'); return; }
+                console.debug('[client] /api/send-otp response', resp.status, data);
+                if (!resp.ok) { showToast('Error sending OTP: ' + (data && data.error ? data.error : resp.statusText)); return; }
 
-                    // Try to send real email first (server will fallback to preview if mail not configured)
+                // Try sending real email (server may fallback to preview)
+                console.debug('[client] POST /api/send-otp-email', { email });
                 try {
                     const respEmail = await fetch('/api/send-otp-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email })
                     });
-                    const dataEmail = await respEmail.json();
-                    if (!respEmail.ok) throw new Error(dataEmail.error || 'Failed to send OTP');
 
-                    document.getElementById('otpEmail').textContent = email;
-                    document.getElementById('authStep1').classList.add('hidden');
-                    document.getElementById('authStep2').classList.remove('hidden');
-                    document.getElementById('authTitle').textContent = 'Verify Email';
+                    let dataEmail;
+                    try { dataEmail = await parseJsonSafe(respEmail); } catch (err) { console.error(err); showToast('Error sending OTP email: invalid server response'); return; }
+                    console.debug('[client] /api/send-otp-email response', respEmail.status, dataEmail);
 
-                    showToast(dataEmail.sent ? 'OTP sent to your email.' : 'OTP preview (email not configured).');
-
-                    // Auto-fill OTP inputs when server returns preview (dev)
-                    if (dataEmail.preview) {
-                        const digits = String(dataEmail.preview).split('');
-                        document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
+                    if (!respEmail.ok) {
+                        showToast('Error sending OTP email: ' + (dataEmail.error || respEmail.statusText));
+                        // fallthrough to preview below
                     } else {
-                        document.querySelectorAll('.otp-input').forEach(input => input.value = '');
+                        document.getElementById('otpEmail').textContent = email;
+                        document.getElementById('authStep1').classList.add('hidden');
+                        document.getElementById('authStep2').classList.remove('hidden');
+                        document.getElementById('authTitle').textContent = 'Verify Email';
+
+                        showToast(dataEmail.sent ? 'OTP sent to your email.' : 'OTP preview (email not configured).');
+
+                        if (dataEmail.preview) {
+                            const digits = String(dataEmail.preview).split('');
+                            document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
+                        } else {
+                            document.querySelectorAll('.otp-input').forEach(input => input.value = '');
+                        }
+                        document.querySelectorAll('.otp-input')[0].focus();
+                        return;
                     }
-                    document.querySelectorAll('.otp-input')[0].focus();
-                    return;
                 } catch (err) {
-                    // fallback to preview-only endpoint
-                    console.warn('Email send failed, falling back to preview:', err.message);
+                    console.warn('Email send request failed, falling back to preview:', err.message);
                 }
 
-                // Fallback: dev-preview only
-                try {
-                    const resp = await fetch('/api/send-otp', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email })
-                    });
-                    const data = await resp.json();
-                    if (!resp.ok) throw new Error(data.error || 'Failed to send OTP');
+                // Fallback: use preview from the first /api/send-otp response
+                document.getElementById('otpEmail').textContent = email;
+                document.getElementById('authStep1').classList.add('hidden');
+                document.getElementById('authStep2').classList.remove('hidden');
+                document.getElementById('authTitle').textContent = 'Verify Email';
 
-                    document.getElementById('otpEmail').textContent = email;
-                    document.getElementById('authStep1').classList.add('hidden');
-                    document.getElementById('authStep2').classList.remove('hidden');
-                    document.getElementById('authTitle').textContent = 'Verify Email';
-
-                    showToast('OTP preview available.');
-                    if (data.preview) {
-                        const digits = String(data.preview).split('');
-                        document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
-                    }
-                    document.querySelectorAll('.otp-input')[0].focus();
-                } catch (err2) {
-                    showToast('Error sending OTP: ' + err2.message);
+                showToast('OTP preview available.');
+                if (data.preview) {
+                    const digits = String(data.preview).split('');
+                    document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
                 }
+                document.querySelectorAll('.otp-input')[0].focus();
             } catch (err) {
+                console.error('[client] sendOTP failed', err);
                 showToast('Error sending OTP: ' + err.message);
             }
         }
@@ -1327,14 +1331,19 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: userEmail, otp })
                 });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || 'Invalid code');
+
+                const text = await resp.text();
+                let data;
+                try { data = text ? JSON.parse(text) : {}; } catch (e) { console.error('[client] /api/verify-otp invalid JSON', text); throw new Error('Invalid server response'); }
+
+                if (!resp.ok) throw new Error(data.error || resp.statusText || 'Invalid code');
 
                 document.getElementById('authStep2').classList.add('hidden');
                 document.getElementById('authStep3').classList.remove('hidden');
                 document.getElementById('authTitle').textContent = 'Complete Profile';
                 showToast('OTP verified — complete your profile');
             } catch (err) {
+                console.error('[client] verifyOTP failed', err);
                 showToast('OTP verification failed: ' + err.message);
             }
         }

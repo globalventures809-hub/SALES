@@ -262,13 +262,25 @@ app.post('/api/auth', async (req, res) => {
 
 // --- OTP (development) ---
 const otps = {}; // { email: { code, expiresAt } }
+
 app.post('/api/send-otp', (req, res) => {
-  const { email } = req.body || {};
-  if (!email || !email.includes('@')) return res.status(400).json({ error: 'valid email required' });
-  const code = String(Math.floor(1000 + Math.random() * 9000));
-  otps[email] = { code, expiresAt: Date.now() + 5 * 60 * 1000 }; // 5 minutes
-  console.log(`[OTP] ${email} -> ${code}`); // dev preview
-  return res.json({ ok: true, preview: code });
+  console.info('[API] POST /api/send-otp', { body: req.body, ip: req.ip });
+  try {
+    const { email } = req.body || {};
+    if (!email || !email.includes('@')) {
+      console.warn('[API] /api/send-otp - invalid email', email);
+      return res.status(400).json({ ok: false, error: 'valid email required' });
+    }
+
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    otps[email] = { code, expiresAt: Date.now() + 5 * 60 * 1000 }; // 5 minutes
+    console.debug('[OTP] generated', { email, code });
+
+    return res.json({ ok: true, preview: code });
+  } catch (err) {
+    console.error('[API] /api/send-otp - unexpected error', err);
+    return res.status(500).json({ ok: false, error: 'internal_server_error' });
+  }
 });
 
 // Send OTP via email (uses SMTP credentials from .env). Returns preview in dev.
@@ -282,41 +294,58 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
 }
 
 app.post('/api/send-otp-email', async (req, res) => {
-  const { email } = req.body || {};
-  if (!email || !email.includes('@')) return res.status(400).json({ error: 'valid email required' });
-
-  const code = String(Math.floor(1000 + Math.random() * 9000));
-  otps[email] = { code, expiresAt: Date.now() + 5 * 60 * 1000 };
-
-  if (!mailTransporter) {
-    console.warn('Email transporter not configured - returning preview only');
-    return res.json({ ok: true, preview: code, sent: false });
-  }
-
+  console.info('[API] POST /api/send-otp-email', { body: req.body, ip: req.ip });
   try {
-    await mailTransporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Your SokoFresh verification code',
-      text: `Your verification code is: ${code} (valid for 5 minutes)`
-    });
-    console.log(`[OTP-email] sent to ${email}`);
-    return res.json({ ok: true, preview: code, sent: true });
+    const { email } = req.body || {};
+    if (!email || !email.includes('@')) {
+      console.warn('[API] /api/send-otp-email - invalid email', email);
+      return res.status(400).json({ ok: false, error: 'valid email required' });
+    }
+
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    otps[email] = { code, expiresAt: Date.now() + 5 * 60 * 1000 };
+
+    if (!mailTransporter) {
+      console.warn('[API] /api/send-otp-email - mailTransporter not configured');
+      return res.json({ ok: true, preview: code, sent: false });
+    }
+
+    try {
+      const info = await mailTransporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Your SokoFresh verification code',
+        text: `Your verification code is: ${code} (valid for 5 minutes)`
+      });
+      console.info('[OTP-email] sent', { to: email, messageId: info && info.messageId });
+      return res.json({ ok: true, preview: code, sent: true });
+    } catch (err) {
+      console.error('[API] /api/send-otp-email - sendMail failed', err && err.message ? err.message : err);
+      return res.status(502).json({ ok: false, error: 'email_send_failed', detail: String(err && err.message), preview: code });
+    }
   } catch (err) {
-    console.error('Failed to send OTP email:', err.message);
-    return res.status(500).json({ ok: false, error: err.message, preview: code });
+    console.error('[API] /api/send-otp-email - unexpected error', err);
+    return res.status(500).json({ ok: false, error: 'internal_server_error' });
   }
 });
 
 app.post('/api/verify-otp', (req, res) => {
-  const { email, otp } = req.body || {};
-  if (!email || !otp) return res.status(400).json({ error: 'email and otp required' });
-  const record = otps[email];
-  if (!record || record.expiresAt < Date.now() || record.code !== String(otp)) {
-    return res.status(400).json({ error: 'invalid or expired otp' });
+  console.info('[API] POST /api/verify-otp', { body: req.body, ip: req.ip });
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) return res.status(400).json({ ok: false, error: 'email and otp required' });
+    const record = otps[email];
+    if (!record || record.expiresAt < Date.now() || record.code !== String(otp)) {
+      console.warn('[API] /api/verify-otp - invalid/expired', { email, record });
+      return res.status(400).json({ ok: false, error: 'invalid or expired otp' });
+    }
+    delete otps[email];
+    console.info('[API] /api/verify-otp - success for', email);
+    return res.json({ ok: true, verified: true });
+  } catch (err) {
+    console.error('[API] /api/verify-otp - unexpected error', err);
+    return res.status(500).json({ ok: false, error: 'internal_server_error' });
   }
-  delete otps[email];
-  return res.json({ ok: true, verified: true });
 });
 
 // --- Pesapal order creation (creates order in Supabase when configured) ---
