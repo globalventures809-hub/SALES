@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SokoFresh - Kenya's Smart Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        accent: {
+                            500: '#f97316',
+                            600: '#ea580c',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-in': 'slideIn 0.5s ease-out',
+                        'bounce-slight': 'bounceSlight 2s infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateX(100%)', opacity: '0' },
+                            '100%': { transform: 'translateX(0)', opacity: '1' },
+                        },
+                        bounceSlight: {
+                            '0%, 100%': { transform: 'translateY(-5%)' },
+                            '50%': { transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .dark .glass-effect {
+            background: rgba(17, 24, 39, 0.85);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .product-card:hover .quick-actions {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .flash-sale-bar {
+            transform: translateX(100%);
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .flash-sale-bar.active {
+            transform: translateX(0);
+        }
+        .otp-input:focus {
+            transform: scale(1.1);
+            border-color: #16a34a;
+        }
+        .mpesa-stk-modal {
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .product-grid-mobile {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+        @media (min-width: 640px) {
+            .product-grid-mobile {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+        }
+        @media (min-width: 1024px) {
+            .product-grid-mobile {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+
+    <!-- Flash Sale Side Panel (Hidden by default, triggered by admin) -->
+    <div id="flashSalePanel" class="flash-sale-bar fixed right-0 top-1/4 z-50 w-80 bg-gradient-to-br from-red-600 to-orange-600 text-white shadow-2xl rounded-l-2xl overflow-hidden">
+        <div class="p-6 relative">
+            <button onclick="toggleFlashSale()" class="absolute top-2 right-2 text-white/80 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="flex items-center gap-2 mb-3">
+                <i class="fas fa-bolt text-yellow-300 animate-pulse"></i>
+                <span class="font-bold text-lg tracking-wider">FLASH SALE</span>
+            </div>
+            <div class="text-sm opacity-90 mb-4">Limited time offers ending in:</div>
+            <div class="flex gap-2 text-center mb-4" id="flashCountdown">
+                <div class="bg-white/20 rounded-lg p-2 flex-1">
+                    <div class="text-2xl font-bold" id="flashHrs">02</div>
+                    <div class="text-xs">HRS</div>
+                </div>
+                <div class="bg-white/20 rounded-lg p-2 flex-1">
+                    <div class="text-2xl font-bold" id="flashMin">45</div>
+                    <div class="text-xs">MIN</div>
+                </div>
+                <div class="bg-white/20 rounded-lg p-2 flex-1">
+                    <div class="text-2xl font-bold" id="flashSec">30</div>
+                    <div class="text-xs">SEC</div>
+                </div>
+            </div>
+            <div id="flashProducts" class="space-y-3 max-h-64 overflow-y-auto hide-scrollbar">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Trigger Button (Demo purposes) -->
+    <button onclick="toggleFlashSale()" class="fixed bottom-4 right-4 z-40 bg-gray-800 text-white px-4 py-2 rounded-full text-xs shadow-lg hover:bg-gray-700 transition">
+        <i class="fas fa-cog mr-2"></i>Toggle Flash Sale
+    </button>
+
+    <!-- M-Pesa STK Push Modal -->
+    <div id="mpesaModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeMpesaModal()"></div>
+        <div class="mpesa-stk-modal relative w-full max-w-md bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 m-4">
+            <button onclick="closeMpesaModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            
+            <div class="text-center mb-6">
+                <div class="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-mobile-alt text-green-600 text-3xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold font-display">M-Pesa Payment</h3>
+                <p class="text-gray-500 text-sm mt-2">STK Push sent to your phone</p>
+            </div>
+
+            <div class="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 mb-6 text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Enter your M-Pesa PIN on your phone when prompted</p>
+                <div class="flex items-center justify-center gap-2 text-green-700 dark:text-green-300 font-bold">
+                    <i class="fas fa-phone"></i>
+                    <span id="mpesaPhoneDisplay">07XX XXX XXX</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 mb-6">
+                <div class="w-3 h-3 bg-green-500 rounded-full animate-bounce"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+            </div>
+
+            <div class="text-center text-sm text-gray-500 mb-4">
+                <p>Transaction amount: <span id="mpesaAmount" class="font-bold text-gray-900 dark:text-white">KSh 0</span></p>
+            </div>
+
+            <button onclick="completeMpesaPayment()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition shadow-lg flex items-center justify-center gap-2">
+                <span>I've Entered PIN</span>
+                <i class="fas fa-check"></i>
+            </button>
+            
+            <button onclick="closeMpesaModal()" class="w-full text-center text-sm text-gray-500 mt-4 hover:text-gray-700">
+                Cancel Transaction
+            </button>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-40 glass-effect border-b border-gray-200 dark:border-gray-800 transition-all duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <div class="flex items-center gap-3 cursor-pointer" onclick="showPage('home')">
+                    <div class="relative w-10 h-10 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-brand-500 rounded-xl rotate-45 animate-pulse-slow"></div>
+                        <div class="absolute inset-1 bg-white dark:bg-gray-900 rounded-lg rotate-45"></div>
+                        <i class="fas fa-leaf text-brand-600 relative z-10 text-xl animate-float"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-display font-bold text-2xl tracking-tight text-gray-900 dark:text-white">
+                            Soko<span class="text-brand-600">Fresh</span>
+                        </h1>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 -mt-1">Kenya's Smart Marketplace</p>
+                    </div>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="hidden md:flex flex-1 max-w-2xl mx-8">
+                    <div class="relative w-full group">
+                        <input type="text" id="searchInput" placeholder="Search products, brands, categories..." 
+                            class="w-full pl-12 pr-24 py-3 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:border-brand-500 focus:outline-none transition-all shadow-sm group-hover:shadow-md">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <button onclick="performSearch()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-brand-600 text-white px-6 py-1.5 rounded-full text-sm hover:bg-brand-700 transition font-medium">
+                            Search
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                        <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                        <i class="fas fa-sun hidden dark:block text-yellow-400"></i>
+                    </button>
+                    
+                    <button onclick="showPage('cart')" class="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                        <i class="fas fa-shopping-cart text-gray-700 dark:text-gray-300 text-xl"></i>
+                        <span id="cartCount" class="absolute -top-1 -right-1 bg-accent-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold hidden">0</span>
+                    </button>
+
+                    <div id="authSection">
+                        <button onclick="openAuthModal()" class="bg-brand-600 text-white px-6 py-2.5 rounded-full font-medium hover:bg-brand-700 transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                            Sign In
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Bar -->
+        <div class="border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex gap-8 overflow-x-auto hide-scrollbar py-3 text-sm font-medium text-gray-600 dark:text-gray-400">
+                    <button onclick="filterCategory('all')" class="whitespace-nowrap hover:text-brand-600 transition flex items-center gap-2 text-brand-600">
+                        <i class="fas fa-th-large"></i> All
+                    </button>
+                    <button onclick="filterCategory('electronics')" class="whitespace-nowrap hover:text-brand-600 transition flex items-center gap-2">
+                        <i class="fas fa-laptop"></i> Electronics
+                    </button>
+                    <button onclick="filterCategory('fashion')" class="whitespace-nowrap hover:text-brand-600 transition flex items-center gap-2">
+                        <i class="fas fa-tshirt"></i> Fashion
+                    </button>
+                    <button onclick="filterCategory('home')" class="whitespace-nowrap hover:text-brand-600 transition flex items-center gap-2">
+                        <i class="fas fa-home"></i> Home & Living
+                    </button>
+                    <button onclick="filterCategory('phones')" class="whitespace-nowrap hover:text-brand-600 transition flex items-center gap-2">
+                        <i class="fas fa-mobile-alt"></i> Phones
+                    </button>
+                    <button onclick="filterCategory('beauty')" class="whitespace-nowrap hover:text-brand-600 transition flex items-center gap-2">
+                        <i class="fas fa-spa"></i> Beauty
+                    </button>
+                    <button onclick="filterCategory('automotive')" class="whitespace-nowrap hover:text-brand-600 transition flex items-center gap-2">
+                        <i class="fas fa-car"></i> Automotive
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Search Bar -->
+    <div class="md:hidden fixed top-20 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+        <div class="relative">
+            <input type="text" id="mobileSearchInput" placeholder="Search products..." 
+                class="w-full pl-10 pr-20 py-2.5 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:border-brand-500 focus:outline-none text-sm">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+            <button onclick="performMobileSearch()" class="absolute right-1.5 top-1/2 -translate-y-1/2 bg-brand-600 text-white px-4 py-1.5 rounded-full text-xs hover:bg-brand-700 transition font-medium">
+                Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="pt-32 md:pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen" id="mainContent">
+        
+        <!-- Hero Section -->
+        <section id="heroSection" class="mb-12" data-aos="fade-up">
+            <div class="relative rounded-3xl overflow-hidden bg-gradient-to-r from-brand-600 to-brand-800 text-white shadow-2xl">
+                <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200')] bg-cover bg-center opacity-20"></div>
+                <div class="relative z-10 px-6 py-12 md:py-24 md:px-16">
+                    <div class="max-w-2xl">
+                        <h2 class="font-display text-3xl md:text-6xl font-bold mb-6 leading-tight">
+                            Shop Smarter,<br>
+                            <span class="text-yellow-300">Live Better</span>
+                        </h2>
+                        <p class="text-base md:text-xl mb-8 text-brand-50 max-w-lg">
+                            Discover verified sellers, authentic products, and lightning-fast delivery across all 47 Kenyan counties.
+                        </p>
+                        <div class="flex flex-wrap gap-4">
+                            <button onclick="scrollToProducts()" class="bg-white text-brand-700 px-6 md:px-8 py-3 md:py-4 rounded-full font-bold hover:bg-gray-100 transition shadow-lg flex items-center gap-2 text-sm md:text-base">
+                                Start Shopping <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trust Badges -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12" data-aos="fade-up" data-aos-delay="100">
+            <div class="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center group hover:shadow-md transition" data-aos="zoom-in" data-aos-delay="0">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-brand-100 dark:bg-brand-900/30 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition">
+                    <i class="fas fa-shield-alt text-brand-600 text-lg md:text-xl"></i>
+                </div>
+                <h3 class="font-semibold text-xs md:text-sm">Verified Sellers</h3>
+                <p class="text-xs text-gray-500 mt-1 hidden md:block">100% Authentic</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center group hover:shadow-md transition" data-aos="zoom-in" data-aos-delay="100">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition">
+                    <i class="fas fa-truck text-blue-600 text-lg md:text-xl"></i>
+                </div>
+                <h3 class="font-semibold text-xs md:text-sm">2-3 Day Delivery</h3>
+                <p class="text-xs text-gray-500 mt-1 hidden md:block">Nationwide</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center group hover:shadow-md transition" data-aos="zoom-in" data-aos-delay="200">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition">
+                    <i class="fas fa-undo text-purple-600 text-lg md:text-xl"></i>
+                </div>
+                <h3 class="font-semibold text-xs md:text-sm">Easy Returns</h3>
+                <p class="text-xs text-gray-500 mt-1 hidden md:block">7-Day Refund</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center group hover:shadow-md transition" data-aos="zoom-in" data-aos-delay="300">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition">
+                    <i class="fas fa-mobile-alt text-orange-600 text-lg md:text-xl"></i>
+                </div>
+                <h3 class="font-semibold text-xs md:text-sm">M-Pesa Pay</h3>
+                <p class="text-xs text-gray-500 mt-1 hidden md:block">Secure & Instant</p>
+            </div>
+        </section>
+
+        <!-- Smart Recommendations -->
+        <section class="mb-12" id="recommendationsSection" data-aos="fade-up">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold font-display">Recommended For You</h2>
+                    <p class="text-gray-500 text-xs md:text-sm mt-1">Based on trending items in your area</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="scrollRecommendations('left')" class="p-2 rounded-full border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+                        <i class="fas fa-chevron-left text-sm"></i>
+                    </button>
+                    <button onclick="scrollRecommendations('right')" class="p-2 rounded-full border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+                        <i class="fas fa-chevron-right text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex gap-3 md:gap-4 overflow-x-auto hide-scrollbar pb-4" id="recommendationsContainer">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Condition Filter Tabs -->
+        <section class="mb-6 md:mb-8" data-aos="fade-up">
+            <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
+                <button onclick="filterCondition('all')" class="condition-tab active px-4 md:px-6 py-2 md:py-2.5 rounded-full border-2 border-brand-600 bg-brand-600 text-white font-medium whitespace-nowrap transition text-xs md:text-sm" data-condition="all">
+                    All Items
+                </button>
+                <button onclick="filterCondition('new')" class="condition-tab px-4 md:px-6 py-2 md:py-2.5 rounded-full border-2 border-gray-300 dark:border-gray-700 font-medium whitespace-nowrap hover:border-brand-600 transition text-xs md:text-sm" data-condition="new">
+                    Brand New
+                </button>
+                <button onclick="filterCondition('used')" class="condition-tab px-4 md:px-6 py-2 md:py-2.5 rounded-full border-2 border-gray-300 dark:border-gray-700 font-medium whitespace-nowrap hover:border-brand-600 transition text-xs md:text-sm" data-condition="used">
+                    Pre-Loved
+                </button>
+                <button onclick="filterCondition('refurbished')" class="condition-tab px-4 md:px-6 py-2 md:py-2.5 rounded-full border-2 border-gray-300 dark:border-gray-700 font-medium whitespace-nowrap hover:border-brand-600 transition text-xs md:text-sm" data-condition="refurbished">
+                    Refurbished
+                </button>
+                <button onclick="filterCondition('openbox')" class="condition-tab px-4 md:px-6 py-2 md:py-2.5 rounded-full border-2 border-gray-300 dark:border-gray-700 font-medium whitespace-nowrap hover:border-brand-600 transition text-xs md:text-sm" data-condition="openbox">
+                    Open Box
+                </button>
+            </div>
+        </section>
+
+        <!-- Products Grid -->
+        <section id="productsSection" data-aos="fade-up">
+            <div class="flex items-center justify-between mb-4 md:mb-6">
+                <h2 class="text-lg md:text-2xl font-bold font-display" id="categoryTitle">All Products</h2>
+                <div class="flex items-center gap-2 md:gap-3">
+                    <span class="text-xs md:text-sm text-gray-500 hidden sm:inline">Sort by:</span>
+                    <select onchange="sortProducts(this.value)" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm focus:outline-none focus:border-brand-500">
+                        <option value="featured">Featured</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                        <option value="newest">Newest Arrivals</option>
+                        <option value="discount">Biggest Discount</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="productsGrid" class="product-grid-mobile">
+                <!-- Products populated by JS -->
+            </div>
+            
+            <div id="emptyState" class="hidden text-center py-20">
+                <div class="w-20 h-20 md:w-24 md:h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-search text-3xl md:text-4xl text-gray-400"></i>
+                </div>
+                <h3 class="text-base md:text-lg font-semibold mb-2">No products found</h3>
+                <p class="text-gray-500 text-sm">Try adjusting your filters or search terms</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Cart Page -->
+    <div id="cartPage" class="hidden pt-24 md:pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen">
+        <h2 class="text-2xl md:text-3xl font-bold font-display mb-6 md:mb-8">Shopping Cart</h2>
+        <div class="grid lg:grid-cols-3 gap-6 md:gap-8">
+            <div class="lg:col-span-2 space-y-3 md:space-y-4" id="cartItems">
+                <!-- Cart items populated by JS -->
+            </div>
+            <div class="lg:col-span-1">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700 sticky top-24">
+                    <h3 class="font-bold text-base md:text-lg mb-4">Order Summary</h3>
+                    <div class="space-y-2 md:space-y-3 mb-4 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600 dark:text-gray-400">Subtotal</span>
+                            <span id="cartSubtotal" class="font-medium">KSh 0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600 dark:text-gray-400">Delivery</span>
+                            <span class="font-medium text-brand-600">Calculated at checkout</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4 md:mb-6">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-base md:text-lg">Total</span>
+                            <span id="cartTotal" class="font-bold text-xl md:text-2xl text-brand-600">KSh 0</span>
+                        </div>
+                    </div>
+                    <button onclick="proceedToCheckout()" class="w-full bg-brand-600 text-white py-3 md:py-4 rounded-xl font-bold hover:bg-brand-700 transition shadow-lg mb-3 text-sm md:text-base">
+                        Proceed to Checkout
+                    </button>
+                    <button onclick="showPage('home')" class="w-full border-2 border-gray-300 dark:border-gray-700 py-2.5 md:py-3 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm md:text-base">
+                        Continue Shopping
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Page -->
+    <div id="checkoutPage" class="hidden pt-20 md:pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto min-h-screen">
+        <div class="flex items-center gap-4 mb-6 md:mb-8">
+            <button onclick="showPage('cart')" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl md:text-3xl font-bold font-display">Checkout</h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 md:gap-8">
+            <!-- Delivery Details -->
+            <div class="space-y-4 md:space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 class="font-bold text-base md:text-lg mb-4 flex items-center gap-2">
+                        <i class="fas fa-map-marker-alt text-brand-600"></i>
+                        Delivery Address
+                    </h3>
+                    
+                    <div class="space-y-3 md:space-y-4">
+                        <div>
+                            <label class="block text-xs md:text-sm font-medium mb-1.5 md:mb-2">County *</label>
+                            <select id="countySelect" onchange="loadConstituencies()" class="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-brand-500 focus:outline-none text-sm">
+                                <option value="">Select County</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs md:text-sm font-medium mb-1.5 md:mb-2">Constituency *</label>
+                            <select id="constituencySelect" class="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-brand-500 focus:outline-none text-sm" disabled>
+                                <option value="">Select Constituency</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs md:text-sm font-medium mb-1.5 md:mb-2">Specific Location/Address *</label>
+                            <textarea id="addressDetails" rows="3" placeholder="e.g., Near Uchumi Hyper, Jamhuri Estate, House No. 45..." 
+                                class="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-brand-500 focus:outline-none resize-none text-sm"></textarea>
+                        </div>
+
+                        <div class="bg-blue-50 dark:bg-blue-900/20 p-3 md:p-4 rounded-lg flex items-start gap-2 md:gap-3">
+                            <i class="fas fa-info-circle text-blue-600 mt-0.5 text-sm"></i>
+                            <div class="text-xs md:text-sm text-blue-800 dark:text-blue-200">
+                                <p class="font-medium">Delivery Estimate</p>
+                                <p>2-3 business days to your location</p>
+                                <p class="mt-1 font-bold">Delivery Fee: KSh 150 - 400</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 class="font-bold text-base md:text-lg mb-4 flex items-center gap-2">
+                        <i class="fas fa-tag text-accent-600"></i>
+                        Discount Code
+                    </h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="discountCode" placeholder="Enter code (e.g., SOKO20)" 
+                            class="flex-1 px-3 md:px-4 py-2.5 md:py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-brand-500 focus:outline-none uppercase text-sm">
+                        <button onclick="applyDiscount()" class="bg-gray-800 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-lg font-medium hover:bg-gray-700 transition text-sm">
+                            Apply
+                        </button>
+                    </div>
+                    <p id="discountMessage" class="text-xs md:text-sm mt-2 hidden"></p>
+                </div>
+            </div>
+
+            <!-- Payment & Summary -->
+            <div class="space-y-4 md:space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 class="font-bold text-base md:text-lg mb-4">Payment Method</h3>
+                    
+                    <div class="space-y-2 md:space-y-3 mb-4 md:mb-6">
+                        <label class="flex items-center gap-2 md:gap-3 p-3 md:p-4 border-2 border-brand-600 rounded-xl cursor-pointer bg-brand-50 dark:bg-brand-900/20">
+                            <input type="radio" name="payment" value="mpesa" checked class="w-4 h-4 text-brand-600" onchange="updatePaymentUI()">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm md:text-base">M-Pesa</div>
+                                <div class="text-xs text-gray-500">STK Push to your phone</div>
+                            </div>
+                            <div class="w-8 h-8 md:w-10 md:h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">M</div>
+                        </label>
+                        
+                        <label class="flex items-center gap-2 md:gap-3 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:border-gray-300 transition">
+                            <input type="radio" name="payment" value="pesapal" class="w-4 h-4 text-brand-600" onchange="updatePaymentUI()">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm md:text-base">PesaPal</div>
+                                <div class="text-xs text-gray-500">Card, M-Pesa, or Bank Transfer</div>
+                            </div>
+                            <div class="w-8 h-8 md:w-10 md:h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">P</div>
+                        </label>
+                        
+                        <label class="flex items-center gap-2 md:gap-3 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:border-gray-300 transition">
+                            <input type="radio" name="payment" value="cod" class="w-4 h-4 text-brand-600" onchange="updatePaymentUI()">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm md:text-base">Cash on Delivery</div>
+                                <div class="text-xs text-gray-500">Pay when you receive</div>
+                            </div>
+                            <i class="fas fa-money-bill-wave text-xl md:text-2xl text-green-600"></i>
+                        </label>
+                    </div>
+
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600 dark:text-gray-400">Subtotal</span>
+                            <span id="checkoutSubtotal">KSh 0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600 dark:text-gray-400">Delivery</span>
+                            <span id="checkoutDelivery">KSh 250</span>
+                        </div>
+                        <div id="discountRow" class="flex justify-between hidden">
+                            <span class="text-green-600">Discount</span>
+                            <span id="checkoutDiscount" class="text-green-600">-KSh 0</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <span class="font-bold text-base md:text-lg">Total</span>
+                            <span id="checkoutTotal" class="font-bold text-xl md:text-2xl text-brand-600">KSh 0</span>
+                        </div>
+                    </div>
+
+                    <button onclick="processPayment()" class="w-full bg-brand-600 text-white py-3 md:py-4 rounded-xl font-bold hover:bg-brand-700 transition shadow-lg mt-4 md:mt-6 flex items-center justify-center gap-2 text-sm md:text-base">
+                        <span id="payButtonText">Pay with M-Pesa</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                    
+                    <button onclick="showRefundPolicy()" class="w-full text-center text-xs md:text-sm text-gray-500 mt-3 md:mt-4 hover:text-brand-600 transition">
+                        View Refund & Return Policy
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeAuthModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 md:p-8 transform transition-all mx-4">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            
+            <div class="text-center mb-6 md:mb-8">
+                <div class="w-14 h-14 md:w-16 md:h-16 bg-brand-100 dark:bg-brand-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-user text-brand-600 text-xl md:text-2xl"></i>
+                </div>
+                <h3 class="text-xl md:text-2xl font-bold font-display" id="authTitle">Welcome Back</h3>
+                <p class="text-gray-500 text-xs md:text-sm mt-2">Sign in to access your orders and saved items</p>
+            </div>
+
+            <!-- Step 1: Email -->
+            <div id="authStep1" class="space-y-4">
+                <div>
+                    <label class="block text-xs md:text-sm font-medium mb-2">Email Address</label>
+                    <input type="email" id="authEmail" placeholder="you@example.com" 
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-brand-500 focus:outline-none text-sm">
+                </div>
+                <button onclick="sendOTP()" class="w-full bg-brand-600 text-white py-3 rounded-lg font-bold hover:bg-brand-700 transition text-sm md:text-base">
+                    Continue with Email
+                </button>
+                <div class="relative my-4 md:my-6">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                    </div>
+                    <div class="relative flex justify-center text-xs">
+                        <span class="px-2 bg-white dark:bg-gray-800 text-gray-500">Or continue with</span>
+                    </div>
+                </div>
+                <button class="w-full border-2 border-gray-300 dark:border-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fab fa-google text-red-500"></i> Google
+                </button>
+            </div>
+
+            <!-- Step 2: OTP -->
+            <div id="authStep2" class="hidden space-y-4">
+                <div class="text-center mb-4">
+                    <p class="text-xs md:text-sm text-gray-600 dark:text-gray-400">We sent a code to <span id="otpEmail" class="font-medium text-gray-900 dark:text-white"></span></p>
+                </div>
+                <div class="flex gap-2 justify-center mb-4">
+                    <input type="text" maxlength="1" class="otp-input w-10 h-12 md:w-12 md:h-14 text-center text-xl md:text-2xl font-bold border-2 border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none transition" onkeyup="moveToNext(this, 0)">
+                    <input type="text" maxlength="1" class="otp-input w-10 h-12 md:w-12 md:h-14 text-center text-xl md:text-2xl font-bold border-2 border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none transition" onkeyup="moveToNext(this, 1)">
+                    <input type="text" maxlength="1" class="otp-input w-10 h-12 md:w-12 md:h-14 text-center text-xl md:text-2xl font-bold border-2 border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none transition" onkeyup="moveToNext(this, 2)">
+                    <input type="text" maxlength="1" class="otp-input w-10 h-12 md:w-12 md:h-14 text-center text-xl md:text-2xl font-bold border-2 border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none transition" onkeyup="moveToNext(this, 3)">
+                </div>
+                <button onclick="verifyOTP()" class="w-full bg-brand-600 text-white py-3 rounded-lg font-bold hover:bg-brand-700 transition text-sm md:text-base">
+                    Verify & Sign In
+                </button>
+                <button onclick="resendOTP()" class="w-full text-xs md:text-sm text-brand-600 hover:underline">
+                    Resend code
+                </button>
+            </div>
+
+            <!-- Step 3: Profile -->
+            <div id="authStep3" class="hidden space-y-4">
+                <div>
+                    <label class="block text-xs md:text-sm font-medium mb-2">Full Name</label>
+                    <input type="text" id="profileName" placeholder="John Doe" 
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-brand-500 focus:outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs md:text-sm font-medium mb-2">Phone Number</label>
+                    <input type="tel" id="profilePhone" placeholder="07XX XXX XXX" 
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-brand-500 focus:outline-none text-sm">
+                </div>
+                <button onclick="completeSignup()" class="w-full bg-brand-600 text-white py-3 rounded-lg font-bold hover:bg-brand-700 transition text-sm md:text-base">
+                    Complete Setup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refund Policy Modal -->
+    <div id="refundModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeRefundModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 md:p-8 mx-4">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl md:text-2xl font-bold font-display">Refund & Return Policy</h3>
+                <button onclick="closeRefundModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="prose dark:prose-invert max-w-none">
+                <div class="space-y-4 text-xs md:text-sm text-gray-600 dark:text-gray-300">
+                    <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border-l-4 border-green-500">
+                        <h4 class="font-bold text-green-800 dark:text-green-200 mb-2">7-Day Money Back Guarantee</h4>
+                        <p>We stand behind every product sold on SokoFresh. If you're not satisfied, return it within 7 days for a full refund.</p>
+                    </div>
+                    
+                    <h4 class="font-bold text-gray-900 dark:text-white mt-6">Return Conditions:</h4>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li>Item must be in original condition</li>
+                        <li>All tags and packaging intact</li>
+                        <li>Proof of purchase required</li>
+                        <li>Electronics must have factory seals unbroken (unless defective)</li>
+                    </ul>
+
+                    <h4 class="font-bold text-gray-900 dark:text-white mt-6">Refund Process:</h4>
+                    <ol class="list-decimal pl-5 space-y-2">
+                        <li>Initiate return from your order history</li>
+                        <li>Our courier picks up from your location (Free)</li>
+                        <li>Item inspected within 48 hours</li>
+                        <li>Refund processed to M-Pesa or original payment method</li>
+                    </ol>
+
+                    <h4 class="font-bold text-gray-900 dark:text-white mt-6">Non-Returnable Items:</h4>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li>Perishable goods</li>
+                        <li>Intimate apparel (for hygiene reasons)</li>
+                        <li>Customized/personalized items</li>
+                        <li>Digital downloads</li>
+                    </ul>
+
+                    <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                        <p class="font-medium text-blue-800 dark:text-blue-200">Questions? Contact our support team 24/7 via chat or call 0700 SOKO FRESH</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Status Modal -->
+    <div id="orderStatusModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+      <div class="absolute inset-0 bg-black/60" onclick="closeOrderStatus()"></div>
+      <div class="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 m-4">
+        <button onclick="closeOrderStatus()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fas fa-times"></i></button>
+        <h3 class="text-xl font-bold mb-2">Order Status</h3>
+        <div id="orderStatusContent" class="text-sm text-gray-700 dark:text-gray-200">
+          <!-- populated by JS -->
+        </div>
+        <div class="mt-4 flex gap-2">
+          <button onclick="closeOrderStatus()" class="ml-auto bg-brand-600 text-white px-4 py-2 rounded-lg">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-full shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2 md:gap-3 text-sm">
+        <i class="fas fa-check-circle text-green-400"></i>
+        <span id="toastMessage">Success!</span>
+    </div>
+
+    <script>
+        // Data Structures
+        const kenyaCounties = {
+            "Nairobi": ["Westlands", "Dagoretti North", "Dagoretti South", "Lang'ata", "Kibra", "Roysambu", "Kasarani", "Ruaraka", "Embakasi South", "Embakasi North", "Embakasi Central", "Embakasi East", "Embakasi West", "Makadara", "Kamukunji", "Starehe", "Mathare"],
+            "Mombasa": ["Changamwe", "Jomvu", "Kisauni", "Nyali", "Likoni", "Mvita"],
+            "Kisumu": ["Kisumu East", "Kisumu West", "Kisumu Central", "Seme", "Nyando", "Muhoroni", "Nyakach"],
+            "Nakuru": ["Nakuru Town West", "Nakuru Town East", "Kuresoi South", "Kuresoi North", "Molo", "Njoro", "Naivasha", "Gilgil", "Subukia", "Rongai", "Bahati"],
+            "Kiambu": ["Gatundu South", "Gatundu North", "Juja", "Thika Town", "Ruiru", "Githunguri", "Kiambu", "Kiambaa", "Kabete", "Kikuyu", "Limuru", "Lari"],
+            "Kajiado": ["Kajiado North", "Kajiado Central", "Kajiado East", "Kajiado West", "Kajiado South"],
+            "Machakos": ["Machakos Town", "Mavoko", "Kangundo", "Kathiani", "Athi River", "Matungulu", "Masinga", "Yatta", "Mwala"]
+        };
+
+        const products = [
+            { id: 1, name: "iPhone 14 Pro Max", category: "phones", condition: "new", price: 145000, originalPrice: 165000, image: "https://images.unsplash.com/photo-1678685888221-cda773a3dcdb?w=500", rating: 4.8, reviews: 124, badge: "Best Seller", seller: "Apple Store KE" },
+            { id: 2, name: "Samsung 55\" Crystal UHD", category: "electronics", condition: "new", price: 58999, originalPrice: 72000, image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=500", rating: 4.6, reviews: 89, badge: "Flash Deal", seller: "Samsung Official" },
+            { id: 3, name: "Nike Air Force 1", category: "fashion", condition: "new", price: 8500, originalPrice: 12000, image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500", rating: 4.9, reviews: 256, badge: "Trending", seller: "Nike Store" },
+            { id: 4, name: "MacBook Air M2", category: "electronics", condition: "refurbished", price: 115000, originalPrice: 145000, image: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=500", rating: 4.7, reviews: 67, badge: "Certified Refurb", seller: "TechHub Kenya" },
+            { id: 5, name: "Sony WH-1000XM4", category: "electronics", condition: "openbox", price: 28999, originalPrice: 45000, image: "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=500", rating: 4.8, reviews: 156, badge: "Open Box", seller: "ElectroHub" },
+            { id: 6, name: "Versace Eros Perfume", category: "beauty", condition: "new", price: 9500, originalPrice: 14000, image: "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=500", rating: 4.9, reviews: 203, badge: "Authentic", seller: "Beauty World" },
+            { id: 7, name: "Toyota Car Mats (Custom)", category: "automotive", condition: "new", price: 4500, originalPrice: 6500, image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=500", rating: 4.5, reviews: 45, badge: "Custom Fit", seller: "AutoZone KE" },
+            { id: 8, name: "Dyson V11 Vacuum", category: "home", condition: "used", price: 35000, originalPrice: 75000, image: "https://images.unsplash.com/photo-1558317374-a354d5f6d40b?w=500", rating: 4.6, reviews: 34, badge: "Like New", seller: "Home Essentials" },
+            { id: 9, name: "PlayStation 5 Console", category: "electronics", condition: "new", price: 72000, originalPrice: 85000, image: "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=500", rating: 4.9, reviews: 312, badge: "Hot", seller: "GameSpot" },
+            { id: 10, name: "Ankara Dress (Kitenge)", category: "fashion", condition: "new", price: 3200, originalPrice: 5500, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500", rating: 4.7, reviews: 89, badge: "Local Design", seller: "Mama Africa" },
+            { id: 11, name: "Samsung Galaxy S23", category: "phones", condition: "refurbished", price: 68000, originalPrice: 95000, image: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=500", rating: 4.6, reviews: 78, badge: "Refurb A+", seller: "PhoneHub" },
+            { id: 12, name: "Nutribullet Pro 900", category: "home", condition: "new", price: 8500, originalPrice: 12000, image: "https://images.unsplash.com/photo-1570222094114-28a9d8896b74?w=500", rating: 4.5, reviews: 134, badge: "Healthy", seller: "Kitchen Plus" }
+        ];
+
+        let cart = [];
+        let currentUser = null;
+        let currentFilter = { category: 'all', condition: 'all' };
+        let appliedDiscount = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            AOS.init({
+                duration: 800,
+                easing: 'ease-out-cubic',
+                once: true,
+                offset: 50
+            });
+            
+            loadCounties();
+            renderProducts();
+            renderRecommendations();
+            startFlashCountdown();
+            checkAuth();
+
+            // If redirected from Pesapal or a successful order, fetch and show order status
+            const params = new URLSearchParams(window.location.search);
+            const pesapal = params.get('pesapal');
+            const orderIdParam = params.get('order_id') || params.get('orderId') || params.get('order');
+            if ((pesapal === 'success' || pesapal === 'paid') && orderIdParam) {
+                fetchOrderStatus(orderIdParam).catch(() => {});
+            }
+        });
+
+        // Search Functions
+        function performSearch() {
+            const query = document.getElementById('searchInput').value;
+            if (query.trim()) {
+                showToast(`Searching for: ${query}`);
+                // Implement search logic here
+            }
+        }
+
+        function performMobileSearch() {
+            const query = document.getElementById('mobileSearchInput').value;
+            if (query.trim()) {
+                showToast(`Searching for: ${query}`);
+                // Implement search logic here
+            }
+        }
+
+        // County & Constituency Logic
+        function loadCounties() {
+            const select = document.getElementById('countySelect');
+            Object.keys(kenyaCounties).forEach(county => {
+                const option = document.createElement('option');
+                option.value = county;
+                option.textContent = county;
+                select.appendChild(option);
+            });
+        }
+
+        function loadConstituencies() {
+            const county = document.getElementById('countySelect').value;
+            const constituencySelect = document.getElementById('constituencySelect');
+            constituencySelect.innerHTML = '<option value="">Select Constituency</option>';
+            
+            if (county && kenyaCounties[county]) {
+                constituencySelect.disabled = false;
+                kenyaCounties[county].forEach(constituency => {
+                    const option = document.createElement('option');
+                    option.value = constituency;
+                    option.textContent = constituency;
+                    constituencySelect.appendChild(option);
+                });
+            } else {
+                constituencySelect.disabled = true;
+            }
+        }
+
+        // Product Rendering - Mobile Optimized
+        function renderProducts() {
+            const grid = document.getElementById('productsGrid');
+            const emptyState = document.getElementById('emptyState');
+            grid.innerHTML = '';
+
+            let filtered = products.filter(p => {
+                const categoryMatch = currentFilter.category === 'all' || p.category === currentFilter.category;
+                const conditionMatch = currentFilter.condition === 'all' || p.condition === currentFilter.condition;
+                return categoryMatch && conditionMatch;
+            });
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            filtered.forEach((product, index) => {
+                const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+                const card = document.createElement('div');
+                card.className = 'product-card bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden group hover:shadow-lg transition-all duration-300';
+                card.setAttribute('data-aos', 'fade-up');
+                card.setAttribute('data-aos-delay', index * 50);
+                card.innerHTML = `
+                    <div class="relative overflow-hidden aspect-square bg-gray-100 dark:bg-gray-900">
+                        <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                        <div class="absolute top-2 left-2 md:top-3 md:left-3">
+                            <span class="bg-brand-600 text-white text-[10px] md:text-xs font-bold px-2 md:px-3 py-0.5 md:py-1 rounded-full">${product.badge}</span>
+                        </div>
+                        <div class="absolute top-2 right-2 md:top-3 md:right-3">
+                            <span class="bg-red-500 text-white text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">-${discount}%</span>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 p-2 md:p-4 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="addToCart(${product.id})" class="w-full bg-white text-gray-900 py-1.5 md:py-2 rounded-lg font-bold hover:bg-gray-100 transition flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm">
+                                <i class="fas fa-cart-plus"></i> <span class="hidden sm:inline">Add to Cart</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-2 md:p-4">
+                        <div class="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
+                            <span class="text-[10px] md:text-xs font-medium px-1.5 md:px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded capitalize">${product.condition}</span>
+                            <div class="flex items-center gap-0.5 md:gap-1 text-yellow-500 text-[10px] md:text-xs">
+                                <i class="fas fa-star"></i>
+                                <span class="text-gray-600 dark:text-gray-400">${product.rating}</span>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 dark:text-white mb-0.5 md:mb-1 line-clamp-2 text-xs md:text-sm leading-tight">${product.name}</h3>
+                        <p class="text-[10px] md:text-xs text-gray-500 mb-1 md:mb-2 truncate">Sold by ${product.seller}</p>
+                        <div class="flex items-end gap-1 md:gap-2">
+                            <span class="text-sm md:text-xl font-bold text-brand-600">KSh ${product.price.toLocaleString()}</span>
+                            <span class="text-[10px] md:text-sm text-gray-400 line-through mb-0.5">KSh ${product.originalPrice.toLocaleString()}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderRecommendations() {
+            const container = document.getElementById('recommendationsContainer');
+            container.innerHTML = '';
+            const recommendations = products.slice(0, 6);
+            
+            recommendations.forEach((product, index) => {
+                const card = document.createElement('div');
+                card.className = 'flex-shrink-0 w-40 md:w-64 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-md transition';
+                card.setAttribute('data-aos', 'fade-left');
+                card.setAttribute('data-aos-delay', index * 100);
+                card.onclick = () => addToCart(product.id);
+                card.innerHTML = `
+                    <div class="h-24 md:h-32 bg-gray-100 dark:bg-gray-900 relative">
+                        <img src="${product.image}" class="w-full h-full object-cover">
+                        <div class="absolute bottom-2 right-2 bg-white dark:bg-gray-800 rounded-full p-1.5 md:p-2 shadow-lg">
+                            <i class="fas fa-plus text-brand-600 text-xs md:text-base"></i>
+                        </div>
+                    </div>
+                    <div class="p-2 md:p-3">
+                        <h4 class="font-medium text-xs md:text-sm truncate">${product.name}</h4>
+                        <p class="text-brand-600 font-bold text-xs md:text-sm">KSh ${product.price.toLocaleString()}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Filtering
+        function filterCategory(category) {
+            currentFilter.category = category;
+            document.getElementById('categoryTitle').textContent = category === 'all' ? 'All Products' : category.charAt(0).toUpperCase() + category.slice(1);
+            renderProducts();
+            AOS.refresh();
+        }
+
+        function filterCondition(condition) {
+            currentFilter.condition = condition;
+            document.querySelectorAll('.condition-tab').forEach(tab => {
+                if (tab.dataset.condition === condition) {
+                    tab.classList.add('bg-brand-600', 'text-white', 'border-brand-600');
+                    tab.classList.remove('border-gray-300', 'dark:border-gray-700');
+                } else {
+                    tab.classList.remove('bg-brand-600', 'text-white', 'border-brand-600');
+                    tab.classList.add('border-gray-300', 'dark:border-gray-700');
+                }
+            });
+            renderProducts();
+            AOS.refresh();
+        }
+
+        function sortProducts(sortType) {
+            showToast('Sorting applied: ' + sortType);
+        }
+
+        // Cart Functions
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            const existing = cart.find(item => item.id === productId);
+            
+            if (existing) {
+                existing.quantity++;
+            } else {
+                cart.push({ ...product, quantity: 1 });
+            }
+            
+            updateCartUI();
+            showToast(`${product.name} added to cart`);
+            
+            const cartBtn = document.querySelector('.fa-shopping-cart').parentElement;
+            cartBtn.classList.add('scale-125');
+            setTimeout(() => cartBtn.classList.remove('scale-125'), 200);
+        }
+
+        function removeFromCart(productId) {
+            cart = cart.filter(item => item.id !== productId);
+            updateCartUI();
+            renderCart();
+        }
+
+        function updateQuantity(productId, change) {
+            const item = cart.find(item => item.id === productId);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) removeFromCart(productId);
+                else {
+                    updateCartUI();
+                    renderCart();
+                }
+            }
+        }
+
+        function updateCartUI() {
+            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const badge = document.getElementById('cartCount');
+            badge.textContent = count;
+            badge.classList.toggle('hidden', count === 0);
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl">
+                        <i class="fas fa-shopping-cart text-4xl md:text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-sm md:text-base">Your cart is empty</p>
+                        <button onclick="showPage('home')" class="mt-4 text-brand-600 font-medium hover:underline text-sm">Continue Shopping</button>
+                    </div>
+                `;
+                document.getElementById('cartSubtotal').textContent = 'KSh 0';
+                document.getElementById('cartTotal').textContent = 'KSh 0';
+                return;
+            }
+
+            container.innerHTML = cart.map(item => `
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-3 md:p-4 flex gap-3 md:gap-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <img src="${item.image}" class="w-20 h-20 md:w-24 md:h-24 object-cover rounded-lg bg-gray-100 flex-shrink-0">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-start mb-1 md:mb-2">
+                            <h3 class="font-semibold text-sm md:text-base truncate pr-2">${item.name}</h3>
+                            <button onclick="removeFromCart(${item.id})" class="text-gray-400 hover:text-red-500 flex-shrink-0">
+                                <i class="fas fa-trash text-sm"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-2 md:mb-3 truncate">${item.seller}</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 md:gap-3 bg-gray-100 dark:bg-gray-700 rounded-lg px-2 md:px-3 py-1">
+                                <button onclick="updateQuantity(${item.id}, -1)" class="text-gray-600 hover:text-gray-900 dark:hover:text-white w-6 md:w-8 text-sm">-</button>
+                                <span class="font-medium w-4 text-center text-sm">${item.quantity}</span>
+                                <button onclick="updateQuantity(${item.id}, 1)" class="text-gray-600 hover:text-gray-900 dark:hover:text-white w-6 md:w-8 text-sm">+</button>
+                            </div>
+                            <span class="font-bold text-sm md:text-lg">KSh ${(item.price * item.quantity).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            document.getElementById('cartSubtotal').textContent = 'KSh ' + subtotal.toLocaleString();
+            document.getElementById('cartTotal').textContent = 'KSh ' + subtotal.toLocaleString();
+        }
+
+        // Checkout & Payment
+        function proceedToCheckout() {
+            if (cart.length === 0) {
+                showToast('Your cart is empty!');
+                return;
+            }
+            if (!currentUser) {
+                openAuthModal();
+                return;
+            }
+            showPage('checkout');
+            updateCheckoutSummary();
+            
+            // Pre-fill phone if available
+            if (currentUser.phone) {
+                document.getElementById('mpesaPhoneDisplay').textContent = currentUser.phone;
+            }
+        }
+
+        function updateCheckoutSummary() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const delivery = 250;
+            const discount = appliedDiscount;
+            const total = subtotal + delivery - discount;
+
+            document.getElementById('checkoutSubtotal').textContent = 'KSh ' + subtotal.toLocaleString();
+            document.getElementById('checkoutDelivery').textContent = 'KSh ' + delivery.toLocaleString();
+            document.getElementById('checkoutTotal').textContent = 'KSh ' + total.toLocaleString();
+            document.getElementById('mpesaAmount').textContent = 'KSh ' + total.toLocaleString();
+            
+            if (discount > 0) {
+                document.getElementById('discountRow').classList.remove('hidden');
+                document.getElementById('checkoutDiscount').textContent = '-KSh ' + discount.toLocaleString();
+            }
+        }
+
+        function updatePaymentUI() {
+            const selected = document.querySelector('input[name="payment"]:checked').value;
+            const btnText = document.getElementById('payButtonText');
+            
+            if (selected === 'mpesa') {
+                btnText.textContent = 'Pay with M-Pesa';
+            } else if (selected === 'pesapal') {
+                btnText.textContent = 'Pay with PesaPal';
+            } else {
+                btnText.textContent = 'Place Order (Cash on Delivery)';
+            }
+        }
+
+        async function processPayment() {
+            const county = document.getElementById('countySelect').value;
+            const constituency = document.getElementById('constituencySelect').value;
+            const address = document.getElementById('addressDetails').value;
+
+            if (!county || !constituency || !address) {
+                showToast('Please complete all address fields');
+                return;
+            }
+
+            const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+            const btn = document.querySelector('#checkoutPage button[onclick="processPayment()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
+
+            const payload = {
+                cart,
+                user: currentUser,
+                address: { county, constituency, details: address },
+                discount: appliedDiscount
+            };
+
+            try {
+                if (paymentMethod === 'mpesa') {
+                    document.getElementById('mpesaModal').classList.remove('hidden');
+                    setTimeout(() => showToast('STK Push sent! Check your phone.'), 500);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (paymentMethod === 'pesapal') {
+                    showToast('Preparing PesaPal checkout...');
+                    const resp = await fetch('/api/pesapal-create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.error || 'Pesapal order failed');
+                    if (data.redirectUrl) {
+                        // redirect to Pesapal (simulated or real)
+                        window.location.href = data.redirectUrl;
+                        return; // navigation away
+                    }
+
+                    // fallback to complete order locally if no redirect provided
+                    showToast('Redirect not available — order created.');
+                    completeOrder();
+                    return;
+                }
+
+                // Cash on Delivery -> use server checkout
+                const checkoutResp = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const checkoutData = await checkoutResp.json();
+                if (!checkoutResp.ok) throw new Error(checkoutData.error || 'Checkout failed');
+
+                showToast('Order placed successfully!');
+                cart = [];
+                updateCartUI();
+                showPage('home');
+            } catch (err) {
+                showToast('Payment error: ' + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function closeMpesaModal() {
+            document.getElementById('mpesaModal').classList.add('hidden');
+        }
+
+        function completeMpesaPayment() {
+            closeMpesaModal();
+            completeOrder();
+        }
+
+        function completeOrder() {
+            const btn = document.querySelector('#checkoutPage button[onclick="processPayment()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                showToast('Order placed successfully! Confirmation sent via SMS.');
+                cart = [];
+                updateCartUI();
+                showPage('home');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 2000);
+        }
+
+        function applyDiscount() {
+            const code = document.getElementById('discountCode').value.toUpperCase();
+            const message = document.getElementById('discountMessage');
+            
+            if (code === 'SOKO20') {
+                appliedDiscount = Math.round(cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 0.2);
+                message.textContent = '20% discount applied!';
+                message.className = 'text-xs md:text-sm mt-2 text-green-600 font-medium';
+                message.classList.remove('hidden');
+                updateCheckoutSummary();
+                showToast('Discount applied successfully!');
+            } else {
+                message.textContent = 'Invalid discount code';
+                message.className = 'text-xs md:text-sm mt-2 text-red-600';
+                message.classList.remove('hidden');
+            }
+        }
+
+        // Auth System
+        let authStep = 1;
+        let userEmail = '';
+
+        function openAuthModal() {
+            document.getElementById('authModal').classList.remove('hidden');
+            resetAuth();
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+        }
+
+        function resetAuth() {
+            authStep = 1;
+            document.getElementById('authStep1').classList.remove('hidden');
+            document.getElementById('authStep2').classList.add('hidden');
+            document.getElementById('authStep3').classList.add('hidden');
+            document.getElementById('authTitle').textContent = 'Welcome Back';
+        }
+
+        async function sendOTP() {
+            const email = document.getElementById('authEmail').value;
+            if (!email || !email.includes('@')) {
+                showToast('Please enter a valid email');
+                return;
+            }
+            userEmail = email;
+
+            try {
+                const resp = await fetch('/api/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Failed to send OTP');
+
+                document.getElementById('otpEmail').textContent = email;
+                document.getElementById('authStep1').classList.add('hidden');
+                document.getElementById('authStep2').classList.remove('hidden');
+                document.getElementById('authTitle').textContent = 'Verify Email';
+
+                    // Try to send real email first (server will fallback to preview if mail not configured)
+                try {
+                    const respEmail = await fetch('/api/send-otp-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    const dataEmail = await respEmail.json();
+                    if (!respEmail.ok) throw new Error(dataEmail.error || 'Failed to send OTP');
+
+                    document.getElementById('otpEmail').textContent = email;
+                    document.getElementById('authStep1').classList.add('hidden');
+                    document.getElementById('authStep2').classList.remove('hidden');
+                    document.getElementById('authTitle').textContent = 'Verify Email';
+
+                    showToast(dataEmail.sent ? 'OTP sent to your email.' : 'OTP preview (email not configured).');
+
+                    // Auto-fill OTP inputs when server returns preview (dev)
+                    if (dataEmail.preview) {
+                        const digits = String(dataEmail.preview).split('');
+                        document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
+                    } else {
+                        document.querySelectorAll('.otp-input').forEach(input => input.value = '');
+                    }
+                    document.querySelectorAll('.otp-input')[0].focus();
+                    return;
+                } catch (err) {
+                    // fallback to preview-only endpoint
+                    console.warn('Email send failed, falling back to preview:', err.message);
+                }
+
+                // Fallback: dev-preview only
+                try {
+                    const resp = await fetch('/api/send-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.error || 'Failed to send OTP');
+
+                    document.getElementById('otpEmail').textContent = email;
+                    document.getElementById('authStep1').classList.add('hidden');
+                    document.getElementById('authStep2').classList.remove('hidden');
+                    document.getElementById('authTitle').textContent = 'Verify Email';
+
+                    showToast('OTP preview available.');
+                    if (data.preview) {
+                        const digits = String(data.preview).split('');
+                        document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
+                    }
+                    document.querySelectorAll('.otp-input')[0].focus();
+                } catch (err2) {
+                    showToast('Error sending OTP: ' + err2.message);
+                }
+            } catch (err) {
+                showToast('Error sending OTP: ' + err.message);
+            }
+        }
+
+        function moveToNext(input, index) {
+            if (input.value && index < 3) {
+                document.querySelectorAll('.otp-input')[index + 1].focus();
+            }
+        }
+
+        async function verifyOTP() {
+            const otp = Array.from(document.querySelectorAll('.otp-input')).map(i => i.value).join('');
+            if (otp.length !== 4) {
+                showToast('Please enter complete OTP');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: userEmail, otp })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Invalid code');
+
+                document.getElementById('authStep2').classList.add('hidden');
+                document.getElementById('authStep3').classList.remove('hidden');
+                document.getElementById('authTitle').textContent = 'Complete Profile';
+                showToast('OTP verified — complete your profile');
+            } catch (err) {
+                showToast('OTP verification failed: ' + err.message);
+            }
+        }
+
+        async function completeSignup() {
+            const name = document.getElementById('profileName').value.trim();
+            const phone = document.getElementById('profilePhone').value.trim();
+
+            if (!name || !phone) {
+                showToast('Please fill all fields');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: userEmail, name, phone })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Signup failed');
+
+                currentUser = data.user;
+                localStorage.setItem('sokofresh_user', JSON.stringify(currentUser));
+                if (data.token) localStorage.setItem('sokofresh_token', data.token);
+
+                closeAuthModal();
+                updateAuthUI();
+                showToast(`Welcome, ${currentUser.name}!`);
+            } catch (err) {
+                showToast('Signup error: ' + err.message);
+            }
+        }
+
+        function checkAuth() {
+            const saved = localStorage.getItem('sokofresh_user');
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                updateAuthUI();
+            }
+        }
+
+        function updateAuthUI() {
+            const section = document.getElementById('authSection');
+            if (currentUser) {
+                section.innerHTML = `
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <div class="w-8 h-8 md:w-10 md:h-10 bg-brand-100 dark:bg-brand-900/30 rounded-full flex items-center justify-center">
+                            <span class="font-bold text-brand-600 text-sm md:text-base">${currentUser.name.charAt(0)}</span>
+                        </div>
+                        <button onclick="logout()" class="text-xs md:text-sm text-gray-600 dark:text-gray-400 hover:text-red-500">
+                            Logout
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('sokofresh_user');
+            location.reload();
+        }
+
+        // Flash Sale System
+        function toggleFlashSale() {
+            const panel = document.getElementById('flashSalePanel');
+            panel.classList.toggle('active');
+            
+            if (panel.classList.contains('active')) {
+                populateFlashProducts();
+            }
+        }
+
+        function populateFlashProducts() {
+            const container = document.getElementById('flashProducts');
+            const flashItems = products.slice(0, 3).map(p => {
+                const flashPrice = Math.round(p.price * 0.7);
+                return `
+                    <div class="bg-white/10 rounded-lg p-2 md:p-3 flex gap-2 md:gap-3 items-center">
+                        <img src="${p.image}" class="w-12 h-12 md:w-16 md:h-16 object-cover rounded-lg flex-shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-medium text-xs md:text-sm truncate">${p.name}</h4>
+                            <div class="flex items-center gap-1 md:gap-2 mt-1">
+                                <span class="font-bold text-yellow-300 text-sm">KSh ${flashPrice.toLocaleString()}</span>
+                                <span class="text-[10px] line-through opacity-70">KSh ${p.price.toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <button onclick="addToCart(${p.id}); toggleFlashSale()" class="bg-white text-red-600 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition flex-shrink-0">
+                            <i class="fas fa-plus text-xs"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            container.innerHTML = flashItems;
+        }
+
+        function startFlashCountdown() {
+            let hours = 2, minutes = 45, seconds = 30;
+            setInterval(() => {
+                seconds--;
+                if (seconds < 0) { seconds = 59; minutes--; }
+                if (minutes < 0) { minutes = 59; hours--; }
+                if (hours < 0) { hours = 2; minutes = 45; seconds = 30; }
+                
+                document.getElementById('flashHrs').textContent = String(hours).padStart(2, '0');
+                document.getElementById('flashMin').textContent = String(minutes).padStart(2, '0');
+                document.getElementById('flashSec').textContent = String(seconds).padStart(2, '0');
+            }, 1000);
+        }
+
+        // UI Helpers
+        function showPage(page) {
+            document.getElementById('mainContent').classList.add('hidden');
+            document.getElementById('cartPage').classList.add('hidden');
+            document.getElementById('checkoutPage').classList.add('hidden');
+            
+            if (page === 'home') {
+                document.getElementById('mainContent').classList.remove('hidden');
+                window.scrollTo(0, 0);
+                AOS.refresh();
+            } else if (page === 'cart') {
+                document.getElementById('cartPage').classList.remove('hidden');
+                renderCart();
+            } else if (page === 'checkout') {
+                document.getElementById('checkoutPage').classList.remove('hidden');
+            }
+        }
+
+        // Fetch order status (from Supabase via server or in-memory)
+        async function fetchOrderStatus(orderId) {
+            if (!orderId) return;
+            showToast('Fetching order status...');
+            try {
+                const resp = await fetch('/api/orders/' + encodeURIComponent(orderId));
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Order not found');
+                showOrderStatus(data);
+            } catch (err) {
+                showToast('Unable to retrieve order: ' + err.message);
+            }
+        }
+
+        function showOrderStatus(order) {
+            const container = document.getElementById('orderStatusContent');
+            const items = (order.cart && typeof order.cart === 'string') ? JSON.parse(order.cart) : (order.cart || []);
+            container.innerHTML = `
+                <div class="mb-2"><strong>Order ID:</strong> ${order.id}</div>
+                <div class="mb-2"><strong>Status:</strong> ${order.status || order.payment_status || order.payment_status || 'pending'}</div>
+                <div class="mb-2"><strong>Total:</strong> KSh ${order.total?.toLocaleString ? order.total.toLocaleString() : (order.total || '0')}</div>
+                <div class="mt-3">
+                  <strong>Items</strong>
+                  <ul class="mt-2 text-sm space-y-1">
+                    ${items.map(it => `<li>${it.name || 'Item'} — x${it.quantity || 1} — KSh ${(it.price||0).toLocaleString()}</li>`).join('')}
+                  </ul>
+                </div>
+            `;
+            document.getElementById('orderStatusModal').classList.remove('hidden');
+        }
+
+        function closeOrderStatus() {
+            document.getElementById('orderStatusModal').classList.add('hidden');
+        }
+
+        function scrollToProducts() {
+            document.getElementById('productsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollRecommendations(direction) {
+            const container = document.getElementById('recommendationsContainer');
+            container.scrollBy({ left: direction === 'left' ? -300 : 300, behavior: 'smooth' });
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function showRefundPolicy() {
+            document.getElementById('refundModal').classList.remove('hidden');
+        }
+
+        function closeRefundModal() {
+            document.getElementById('refundModal').classList.add('hidden');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Navbar scroll effect
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                nav.classList.add('shadow-md');
+            } else {
+                nav.classList.remove('shadow-md');
+            }
+        });
+
+        // Enter key for search
+        document.getElementById('searchInput')?.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') performSearch();
+        });
+        document.getElementById('mobileSearchInput')?.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') performMobileSearch();
+        });
+    </script>
+</body>
+</html>
