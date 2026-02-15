@@ -4,5 +4,8 @@
 */
 window.__ENV__ = {
   SUPABASE_URL: 'https://kduouxlsykzucntkjxke.supabase.co',
-  SUPABASE_PUBLISHABLE: 'sb_publishable_tdN5Wkl6fe-Jtr0UQztIjA_u3auj2nh'
+  SUPABASE_PUBLISHABLE: 'sb_publishable_tdN5Wkl6fe-Jtr0UQztIjA_u3auj2nh',
+  NEXT_PUBLIC_API_URL: 'https://sales-1vzv.onrender.com',
+  NEXT_PUBLIC_PESAPAL_CONSUMER_KEY: '',
+  NEXT_PUBLIC_PESAPAL_CONSUMER_SECRET: ''
 };

@@ -1058,6 +1058,38 @@
             }
         }
 
+        const API_BASE = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) || (window.__ENV__ && window.__ENV__.NEXT_PUBLIC_API_URL) || 'https://sales-1vzv.onrender.com';
+        const PESAPAL_PUBLISHABLE = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_PESAPAL_CONSUMER_KEY) || (window.__ENV__ && window.__ENV__.NEXT_PUBLIC_PESAPAL_CONSUMER_KEY) || '';
+
+        async function apiFetch(path, opts = {}) {
+            const base = String(API_BASE || '').replace(/\/$/, '');
+            const url = (path && path.startsWith('http')) ? path : `${base}${path && path.startsWith('/') ? path : ('/' + (path || ''))}`;
+            const defaultHeaders = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+            const init = {
+                method: opts.method || 'GET',
+                headers: Object.assign({}, defaultHeaders, opts.headers || {}),
+                body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body,
+                ...opts
+            };
+            try {
+                const resp = await fetch(url, init);
+                const text = await resp.text();
+                let data;
+                try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+                if (!resp.ok) {
+                    console.error('[apiFetch] non-OK response', { url, status: resp.status, statusText: resp.statusText, bodyText: text, parsed: data });
+                    const err = new Error((data && data.error) || resp.statusText || 'API error');
+                    err.status = resp.status;
+                    err.body = data;
+                    throw err;
+                }
+                return data;
+            } catch (err) {
+                console.error('[apiFetch] network/error', { url, err });
+                throw err;
+            }
+        }
+
         function updateCheckoutSummary() {
             const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const delivery = 250;
@@ -1122,33 +1154,24 @@
 
                 if (paymentMethod === 'pesapal') {
                     showToast('Preparing PesaPal checkout...');
-                    const resp = await fetch('/api/pesapal-create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const data = await resp.json();
-                    if (!resp.ok) throw new Error(data.error || 'Pesapal order failed');
-                    if (data.redirectUrl) {
-                        // redirect to Pesapal (simulated or real)
-                        window.location.href = data.redirectUrl;
-                        return; // navigation away
+                    try {
+                        const data = await apiFetch('/api/pesapal-create', { method: 'POST', body: payload });
+                        if (data.redirectUrl) {
+                            // redirect to Pesapal (simulated or real)
+                            window.location.href = data.redirectUrl;
+                            return; // navigation away
+                        }
+                        // fallback to complete order locally if no redirect provided
+                        showToast('Redirect not available — order created.');
+                        completeOrder();
+                        return;
+                    } catch (err) {
+                        throw new Error(err && err.message ? err.message : 'Pesapal order failed');
                     }
-
-                    // fallback to complete order locally if no redirect provided
-                    showToast('Redirect not available — order created.');
-                    completeOrder();
-                    return;
                 }
 
                 // Cash on Delivery -> use server checkout
-                const checkoutResp = await fetch('/api/checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const checkoutData = await checkoutResp.json();
-                if (!checkoutResp.ok) throw new Error(checkoutData.error || 'Checkout failed');
+                const checkoutData = await apiFetch('/api/checkout', { method: 'POST', body: payload });
 
                 showToast('Order placed successfully!');
                 cart = [];
@@ -1234,64 +1257,41 @@
             }
             userEmail = email;
 
-            const parseJsonSafe = async (response) => {
-                const text = await response.text();
-                try {
-                    return text ? JSON.parse(text) : {};
-                } catch (err) {
-                    console.error('[client] Invalid JSON from', response.url, 'status', response.status, 'body:', text);
-                    throw new Error('Invalid JSON response from server');
-                }
-            };
-
             console.debug('[client] POST /api/send-otp', { email });
+            let data;
             try {
-                const resp = await fetch('/api/send-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-
-                let data;
-                try { data = await parseJsonSafe(resp); } catch (err) { console.error(err); showToast('Error sending OTP: invalid server response'); return; }
-                console.debug('[client] /api/send-otp response', resp.status, data);
-                if (!resp.ok) { showToast('Error sending OTP: ' + (data && data.error ? data.error : resp.statusText)); return; }
+                data = await apiFetch('/api/send-otp', { method: 'POST', body: { email } });
+                console.debug('[client] /api/send-otp response', data);
+            } catch (err) {
+                console.error(err);
+                showToast('Error sending OTP: ' + (err.message || 'Invalid server response'));
+                return;
+            }
 
                 // Try sending real email (server may fallback to preview)
                 console.debug('[client] POST /api/send-otp-email', { email });
                 try {
-                    const respEmail = await fetch('/api/send-otp-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email })
-                    });
+                    const dataEmail = await apiFetch('/api/send-otp-email', { method: 'POST', body: { email } });
+                    console.debug('[client] /api/send-otp-email response', dataEmail);
 
-                    let dataEmail;
-                    try { dataEmail = await parseJsonSafe(respEmail); } catch (err) { console.error(err); showToast('Error sending OTP email: invalid server response'); return; }
-                    console.debug('[client] /api/send-otp-email response', respEmail.status, dataEmail);
+                    document.getElementById('otpEmail').textContent = email;
+                    document.getElementById('authStep1').classList.add('hidden');
+                    document.getElementById('authStep2').classList.remove('hidden');
+                    document.getElementById('authTitle').textContent = 'Verify Email';
 
-                    if (!respEmail.ok) {
-                        showToast('Error sending OTP email: ' + (dataEmail.error || respEmail.statusText));
-                        // fallthrough to preview below
+                    showToast(dataEmail.sent ? 'OTP sent to your email.' : 'OTP preview (email not configured).');
+
+                    if (dataEmail.preview) {
+                        const digits = String(dataEmail.preview).split('');
+                        document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
                     } else {
-                        document.getElementById('otpEmail').textContent = email;
-                        document.getElementById('authStep1').classList.add('hidden');
-                        document.getElementById('authStep2').classList.remove('hidden');
-                        document.getElementById('authTitle').textContent = 'Verify Email';
-
-                        showToast(dataEmail.sent ? 'OTP sent to your email.' : 'OTP preview (email not configured).');
-
-                        if (dataEmail.preview) {
-                            const digits = String(dataEmail.preview).split('');
-                            document.querySelectorAll('.otp-input').forEach((input, idx) => input.value = digits[idx] || '');
-                        } else {
-                            document.querySelectorAll('.otp-input').forEach(input => input.value = '');
-                        }
-                        document.querySelectorAll('.otp-input')[0].focus();
-                        return;
+                        document.querySelectorAll('.otp-input').forEach(input => input.value = '');
                     }
+                    document.querySelectorAll('.otp-input')[0].focus();
+                    return;
                 } catch (err) {
-                    console.warn('Email send request failed, falling back to preview:', err.message);
+                    console.warn('Email send request failed, falling back to preview:', err);
+                    // fallthrough to preview using data from initial /api/send-otp call
                 }
 
                 // Fallback: use preview from the first /api/send-otp response
@@ -1326,17 +1326,7 @@
             }
 
             try {
-                const resp = await fetch('/api/verify-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: userEmail, otp })
-                });
-
-                const text = await resp.text();
-                let data;
-                try { data = text ? JSON.parse(text) : {}; } catch (e) { console.error('[client] /api/verify-otp invalid JSON', text); throw new Error('Invalid server response'); }
-
-                if (!resp.ok) throw new Error(data.error || resp.statusText || 'Invalid code');
+                await apiFetch('/api/verify-otp', { method: 'POST', body: { email: userEmail, otp } });
 
                 document.getElementById('authStep2').classList.add('hidden');
                 document.getElementById('authStep3').classList.remove('hidden');
@@ -1344,7 +1334,7 @@
                 showToast('OTP verified — complete your profile');
             } catch (err) {
                 console.error('[client] verifyOTP failed', err);
-                showToast('OTP verification failed: ' + err.message);
+                showToast('OTP verification failed: ' + (err.message || 'Invalid code'));
             }
         }
 
@@ -1358,13 +1348,7 @@
             }
 
             try {
-                const resp = await fetch('/api/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: userEmail, name, phone })
-                });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || 'Signup failed');
+                const data = await apiFetch('/api/auth', { method: 'POST', body: { email: userEmail, name, phone } });
 
                 currentUser = data.user;
                 localStorage.setItem('sokofresh_user', JSON.stringify(currentUser));
@@ -1374,7 +1358,7 @@
                 updateAuthUI();
                 showToast(`Welcome, ${currentUser.name}!`);
             } catch (err) {
-                showToast('Signup error: ' + err.message);
+                showToast('Signup error: ' + (err.message || 'Signup failed'));
             }
         }
 
@@ -1478,12 +1462,10 @@
             if (!orderId) return;
             showToast('Fetching order status...');
             try {
-                const resp = await fetch('/api/orders/' + encodeURIComponent(orderId));
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || 'Order not found');
+                const data = await apiFetch(`/api/orders/${encodeURIComponent(orderId)}`);
                 showOrderStatus(data);
             } catch (err) {
-                showToast('Unable to retrieve order: ' + err.message);
+                showToast('Unable to retrieve order: ' + (err.message || 'Order not found'));
             }
         }
 
